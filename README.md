@@ -38,7 +38,7 @@ Web-Anwendung und Collector-Dienst laufen unabhängig voneinander und teilen sic
    mysql -u root -p vsrp_ddos < db/schema.sql
    ```
 2. **Konfiguration**: `.env.example` nach `.env` kopieren und ausfüllen (Datenbankzugang, `APP_KEY`,
-   `BASE_URL`, SMTP, Discord-Webhook). **`.env` enthält Zugangsdaten, wird nicht eingecheckt
+   `BASE_URL`, SMTP, Discord-Webhook). **Auf dem Server die `.env` eine Ebene oberhalb des Web-Roots ablegen** (z. B. `htdocs/.env`), da Nginx `.htaccess` ignoriert und sie sonst abrufbar wäre. **`.env` enthält Zugangsdaten, wird nicht eingecheckt
    (siehe `.gitignore`) und darf nur per SFTP direkt auf den Server übertragen werden — niemals
    per `git push`/`pull`.** `APP_KEY` erzeugen z. B. mit:
    ```bash

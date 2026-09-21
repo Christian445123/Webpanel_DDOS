@@ -11,7 +11,11 @@ final class Config
     public static function all(): array
     {
         if (self::$data === null) {
-            Env::load(dirname(__DIR__) . '/.env');
+            // Bevorzugt eine Ebene oberhalb des Web-Roots (dort nicht per Browser abrufbar, auch auf Nginx ohne
+            // .htaccess-Unterstützung); als Rückfall die .env im App-Ordner (nur mit serverseitiger Sperre verwenden).
+            $appRoot = dirname(__DIR__);
+            $envPath = is_file(dirname($appRoot) . '/.env') ? dirname($appRoot) . '/.env' : $appRoot . '/.env';
+            Env::load($envPath);
 
             $appKey = Env::get('APP_KEY');
             if ($appKey === '') {
