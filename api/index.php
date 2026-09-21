@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/autoload.php';
 
 use Vsrp\Ddos\ApiAuth;
 use Vsrp\Ddos\Database;
+use Vsrp\Ddos\License;
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -25,11 +26,22 @@ if ($key === null) {
     json_out(401, ['error' => 'unauthorized', 'message' => 'Ungültiger oder fehlender API-Schlüssel.']);
 }
 
+$license = License::validate((string)($_SERVER['HTTP_X_LICENSE_KEY'] ?? ''));
+if ($license === null) {
+    json_out(403, ['error' => 'license_invalid', 'message' => 'Lizenzschlüssel fehlt, ist ungültig, widerrufen oder abgelaufen.']);
+}
+
 $db = Database::connection();
 
 // GET /api/ping
 if ($segments === ['ping'] && $method === 'GET') {
-    json_out(200, ['ok' => true, 'key_label' => $key['label'], 'server_time' => date(DATE_ATOM)]);
+    json_out(200, [
+        'ok' => true,
+        'key_label' => $key['label'],
+        'license_label' => $license['label'],
+        'license_expires_at' => $license['expires_at'],
+        'server_time' => date(DATE_ATOM),
+    ]);
 }
 
 // GET /api/status

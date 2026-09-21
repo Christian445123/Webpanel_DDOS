@@ -91,3 +91,16 @@ INSERT INTO settings (setting_key, setting_value) VALUES
     ('monitor_interface', 'eth0'),
     ('samples_retention_days', '14')
 ON DUPLICATE KEY UPDATE setting_key = setting_key;
+
+-- Lizenzschluessel fuer den C#-Admin-Client (nur der SHA-256-Hash wird gespeichert)
+CREATE TABLE IF NOT EXISTS licenses (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    label VARCHAR(100) NOT NULL,
+    key_hash CHAR(64) NOT NULL UNIQUE,
+    key_hint CHAR(4) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATE NULL,
+    revoked_at DATETIME NULL,
+    last_used_at DATETIME NULL,
+    last_ip VARCHAR(45) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
