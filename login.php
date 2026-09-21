@@ -35,12 +35,14 @@ $pageTitle = 'Anmelden – ' . Config::get('app_name', 'VSRP DDoS Monitor');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($pageTitle) ?></title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
 <div class="login-wrap">
     <div class="login-box">
-        <h1>🛡️ <?= htmlspecialchars(Config::get('app_name', 'VSRP DDoS Monitor')) ?></h1>
+        <h1><img src="/assets/logo.png" alt="" width="40" height="40" style="vertical-align:middle;margin-right:10px;border-radius:8px"><?= htmlspecialchars(Config::get('app_name', 'VSRP DDoS Monitor')) ?></h1>
         <?php if ($error !== ''): ?>
             <div class="alert error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>

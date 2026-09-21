@@ -10,12 +10,14 @@ use Vsrp\Ddos\Config;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($pageTitle ?? 'VSRP DDoS Monitor') ?></title>
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/icon-192.png">
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body>
 <?php if (Auth::check()): ?>
 <div class="topbar">
-    <div class="brand">🛡️ <?= htmlspecialchars(Config::get('app_name', 'VSRP DDoS Monitor')) ?></div>
+    <div class="brand"><img src="/assets/logo.png" alt="" width="28" height="28" style="vertical-align:middle;margin-right:8px;border-radius:6px"><?= htmlspecialchars(Config::get('app_name', 'VSRP DDoS Monitor')) ?></div>
     <nav>
         <a href="/dashboard.php" class="<?= ($activeNav ?? '') === 'dashboard' ? 'active' : '' ?>">Dashboard</a>
         <a href="/incidents.php" class="<?= ($activeNav ?? '') === 'incidents' ? 'active' : '' ?>">Vorfälle</a>
