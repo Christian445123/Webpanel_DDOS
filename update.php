@@ -66,6 +66,11 @@ require __DIR__ . '/_layout_top.php';
             <div class="alert <?= $result['code'] === 0 ? 'success' : 'error' ?>" style="margin-top:16px">
                 <?= $result['code'] === 0 ? '✅ Update durchgeführt. Der Collector-Dienst startet sich innerhalb weniger Sekunden selbst mit dem neuen Code neu.' : '❌ git pull ist fehlgeschlagen (Exit-Code ' . (int)$result['code'] . ').' ?>
                 <pre class="mono" style="white-space:pre-wrap"><?= htmlspecialchars($result['output']) ?></pre>
+                <?php if ($result['code'] !== 0 && (stripos($result['output'], 'permission') !== false || stripos($result['output'], 'dubious ownership') !== false)): ?>
+                    <p><strong>Ursache:</strong> Dateien im App-Ordner gehören einem anderen Benutzer (z. B. root nach einem manuellen <code>git pull</code> per SSH).
+                        Auf dem Server einmal ausführen (als root):</p>
+                    <pre class="mono" style="white-space:pre-wrap">chown -R <?= htmlspecialchars((string)(function_exists('posix_getpwuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'SEITENBENUTZER') : 'SEITENBENUTZER')) ?>: <?= htmlspecialchars(__DIR__) ?></pre>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
