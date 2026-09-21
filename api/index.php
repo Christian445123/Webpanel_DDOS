@@ -91,26 +91,37 @@ if ($segments === ['ping'] && $method === 'GET') {
     ]);
 }
 
-// GET /api/status
+// Optionaler Filter ?server_id=  (0 = Hauptserver, >0 = überwachter Server, fehlt = Hauptserver bzw. alle)
+$hasServerFilter = isset($_GET['server_id']);
+$filterSid = $hasServerFilter && (int)$_GET['server_id'] > 0 ? (int)$_GET['server_id'] : null;
+
+// GET /api/status[?server_id=]
 if ($segments === ['status'] && $method === 'GET') {
-    $latest = $db->query('SELECT * FROM samples WHERE server_id IS NULL ORDER BY id DESC LIMIT 1')->fetch() ?: null;
-    $active = $db->query("SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id WHERE i.status = 'active' ORDER BY i.id DESC LIMIT 1")->fetch() ?: null;
-    json_out(200, ['latest_sample' => $latest, 'active_incident' => $active]);
+    $stmt = $db->prepare('SELECT * FROM samples WHERE server_id <=> :s ORDER BY id DESC LIMIT 1');
+    $stmt->execute(['s' => $filterSid]);
+    $latest = $stmt->fetch() ?: null;
+    $sql = "SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id WHERE i.status = 'active'"
+        . ($hasServerFilter ? ' AND i.server_id <=> :s' : '') . ' ORDER BY i.id DESC LIMIT 1';
+    $stmt = $db->prepare($sql);
+    $stmt->execute($hasServerFilter ? ['s' => $filterSid] : []);
+    json_out(200, ['latest_sample' => $latest, 'active_incident' => $stmt->fetch() ?: null]);
 }
 
-// GET /api/samples?minutes=30
+// GET /api/samples?minutes=30[&server_id=]
 if ($segments === ['samples'] && $method === 'GET') {
     $minutes = max(1, min(1440, (int)($_GET['minutes'] ?? 30)));
-    $stmt = $db->prepare('SELECT ts, mbit_in, pps_in, mbit_out, pps_out, total_conn, syn_recv FROM samples WHERE server_id IS NULL AND ts >= DATE_SUB(NOW(), INTERVAL :m MINUTE) ORDER BY id ASC');
-    $stmt->execute(['m' => $minutes]);
+    $stmt = $db->prepare('SELECT ts, mbit_in, pps_in, mbit_out, pps_out, total_conn, syn_recv FROM samples WHERE server_id <=> :s AND ts >= DATE_SUB(NOW(), INTERVAL :m MINUTE) ORDER BY id ASC');
+    $stmt->execute(['s' => $filterSid, 'm' => $minutes]);
     json_out(200, ['samples' => $stmt->fetchAll()]);
 }
 
-// GET /api/incidents?limit=50
+// GET /api/incidents?limit=50[&server_id=]
 if ($segments === ['incidents'] && $method === 'GET') {
     $limit = max(1, min(500, (int)($_GET['limit'] ?? 50)));
-    $stmt = $db->prepare("SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id ORDER BY i.id DESC LIMIT " . $limit);
-    $stmt->execute();
+    $sql = "SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id"
+        . ($hasServerFilter ? ' WHERE i.server_id <=> :s' : '') . ' ORDER BY i.id DESC LIMIT ' . $limit;
+    $stmt = $db->prepare($sql);
+    $stmt->execute($hasServerFilter ? ['s' => $filterSid] : []);
     json_out(200, ['incidents' => $stmt->fetchAll()]);
 }
 
