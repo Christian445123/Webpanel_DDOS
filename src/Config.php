@@ -48,6 +48,7 @@ final class Config
                     'alert_to' => Env::get('ALERT_EMAIL_TO'),
                 ],
                 'discord_webhook_url' => Env::get('DISCORD_WEBHOOK_URL'),
+                'github_repo' => Env::get('GITHUB_REPO', 'Christian445123/VspDdosMonitor'),
             ];
 
             date_default_timezone_set(self::$data['timezone']);
