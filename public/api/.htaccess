@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Manche Apache/PHP-FPM-Konfigurationen reichen den Authorization-Header nicht automatisch durch
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ index.php?r=$1 [QSA,L]

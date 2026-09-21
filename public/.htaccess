@@ -1,0 +1,6 @@
+RewriteEngine On
+
+# Layout-Teilstücke nicht direkt aufrufbar machen
+RewriteRule ^_layout_(top|bottom)\.php$ - [F,L]
+
+Options -Indexes

@@ -1,0 +1,19 @@
+[Unit]
+Description=VSRP DDoS Monitor - Collector (Erkennung, laeuft dauerhaft im Hintergrund)
+After=network.target mysql.service mariadb.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/vsrp-ddos
+ExecStart=/usr/bin/php /var/www/vsrp-ddos/bin/collector.php
+Restart=always
+RestartSec=5
+# Wird fuer nftables/iptables-Vorschlaege NICHT gebraucht (es wird nichts automatisch geblockt) -
+# der Dienst braucht nur Leserechte fuer /proc/net/dev und Ausfuehrrecht fuer `ss`.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
