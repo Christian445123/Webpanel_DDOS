@@ -30,6 +30,19 @@ final class Migrator
                     offline_notified TINYINT(1) NOT NULL DEFAULT 0
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
             );
+            $db->exec(
+                'CREATE TABLE IF NOT EXISTS licenses (
+                    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    label VARCHAR(100) NOT NULL,
+                    key_hash CHAR(64) NOT NULL UNIQUE,
+                    key_hint CHAR(4) NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    expires_at DATE NULL,
+                    revoked_at DATETIME NULL,
+                    last_used_at DATETIME NULL,
+                    last_ip VARCHAR(45) NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            );
             foreach (['samples', 'incidents'] as $table) {
                 $has = $db->query("SHOW COLUMNS FROM {$table} LIKE 'server_id'")->fetch();
                 if (!$has) {
