@@ -15,6 +15,11 @@ final class ApiAuth
         return 'vddos_' . bin2hex(random_bytes(24));
     }
 
+    public static function newServerKey(): string
+    {
+        return 'vsrv_' . bin2hex(random_bytes(24));
+    }
+
     public static function hash(string $key): string
     {
         return hash('sha256', $key);

@@ -88,3 +88,23 @@ Gegenangriff würde also unbeteiligte Dritte treffen. Diese Anwendung implementi
 - Alte Messwerte (außerhalb von Vorfällen) werden automatisch nach `samples_retention_days`
   Tagen gelöscht (Standard 14, einstellbar).
 - Logs des Collector-Dienstes: `journalctl -u vsrp-ddos-collector`.
+
+## Weitere Server überwachen (Agent)
+
+Neben dem lokalen Collector können beliebig viele weitere Linux-Server überwacht werden:
+
+1. Im Dashboard unter **Server** einen neuen Server anlegen – der Schlüssel (`vsrv_…`) und der fertige
+   Installationsbefehl werden einmalig angezeigt.
+2. Den Befehl auf dem jeweiligen Server als root ausführen (für alle Server gleich, nur der Schlüssel unterscheidet sich):
+   ```bash
+   curl -fsSL https://ddos.viennastaterp.at/agent/install.sh | sudo bash -s -- vsrv_XXXXXXXX
+   ```
+   Entfernen: `sudo bash install.sh --uninstall`. Voraussetzungen: systemd, `curl`, `ss` (iproute2), `awk`
+   (werden bei Bedarf per apt/dnf/yum nachinstalliert).
+3. Der Agent meldet alle 10 Sekunden Bandbreite, Pakete/s, Verbindungen, SYN-RECV und Top-IPs an die Zentrale.
+   Er verändert weder Firewall noch Netzwerk und blockiert nichts.
+
+Die Zentrale erkennt pro Server automatisch (a) Überschreiten der Schwellwerte und (b) einen **plötzlichen Anstieg**
+gegenüber den letzten Messungen (Vorwarnung, „DDoS im Anmarsch“) und schickt dann E-Mail und Discord-Nachricht.
+Meldet sich ein Server nicht mehr (bei DDoS oft eine überlastete Leitung), gibt es ebenfalls einen Alarm.
+Nach dem Update auf diese Version legt die Anwendung die neue Tabelle `servers` und die Spalten `server_id` selbst an.

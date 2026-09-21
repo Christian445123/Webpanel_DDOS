@@ -20,6 +20,7 @@ use Vsrp\Ddos\Config;
         <a href="/dashboard.php" class="<?= ($activeNav ?? '') === 'dashboard' ? 'active' : '' ?>">Dashboard</a>
         <a href="/incidents.php" class="<?= ($activeNav ?? '') === 'incidents' ? 'active' : '' ?>">Vorfälle</a>
         <a href="/api_keys.php" class="<?= ($activeNav ?? '') === 'api_keys' ? 'active' : '' ?>">API-Zugang</a>
+        <a href="/servers.php" class="<?= ($activeNav ?? '') === 'servers' ? 'active' : '' ?>">Server</a>
         <a href="/licenses.php" class="<?= ($activeNav ?? '') === 'licenses' ? 'active' : '' ?>">Lizenzen</a>
         <a href="/settings.php" class="<?= ($activeNav ?? '') === 'settings' ? 'active' : '' ?>">Einstellungen</a>
         <span class="muted"><?= htmlspecialchars(Auth::username()) ?></span>

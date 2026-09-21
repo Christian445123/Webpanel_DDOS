@@ -15,7 +15,7 @@ final class Notifier
         $link = $dashboardUrl !== '' ? $dashboardUrl . '/incident.php?id=' . $incident['id'] : '';
 
         $lines = [];
-        $lines[] = 'Möglicher DDoS-Angriff erkannt (Vorfall #' . $incident['id'] . ')';
+        $lines[] = 'Möglicher DDoS-Angriff auf Server "' . ($incident['server_name'] ?? 'Hauptserver') . '" erkannt (Vorfall #' . $incident['id'] . ')';
         $lines[] = 'Beginn: ' . $incident['started_at'];
         $lines[] = 'Auslöser: ' . $incident['trigger_reason'];
         $lines[] = '';
@@ -44,7 +44,7 @@ final class Notifier
         $emailTo = (string)Config::get('mail.alert_to', '');
         $emailSent = false;
         if ($emailTo !== '') {
-            $emailSent = Mail::send($emailTo, '⚠️ DDoS-Verdacht erkannt – Vorfall #' . $incident['id'], $body);
+            $emailSent = Mail::send($emailTo, '⚠️ DDoS-Verdacht auf ' . ($incident['server_name'] ?? 'Hauptserver') . ' – Vorfall #' . $incident['id'], $body);
         }
 
         $fields = [];
@@ -52,7 +52,7 @@ final class Notifier
             $fields[] = [$s['ip'], $s['conn_count'] . ' Verbindungen, ' . $s['syn_recv_count'] . ' SYN-RECV', true];
         }
         $discordSent = DiscordNotifier::send(
-            '⚠️ DDoS-Verdacht erkannt – Vorfall #' . $incident['id'],
+            '⚠️ DDoS-Verdacht auf ' . ($incident['server_name'] ?? 'Hauptserver') . ' – Vorfall #' . $incident['id'],
             sprintf(
                 "**%.1f MBit/s** eingehend, **%s** Pakete/s, **%s** Verbindungen, **%s** SYN-RECV\n%s%s",
                 (float)$incident['peak_mbit_in'],
@@ -83,7 +83,7 @@ final class Notifier
         $link = $dashboardUrl !== '' ? $dashboardUrl . '/incident.php?id=' . $incident['id'] : '';
 
         $body = implode("\n", array_filter([
-            'Entwarnung: Vorfall #' . $incident['id'] . ' ist beendet.',
+            'Entwarnung: Vorfall #' . $incident['id'] . ' auf ' . ($incident['server_name'] ?? 'Hauptserver') . ' ist beendet.',
             'Dauer: ' . $durationText,
             sprintf(
                 'Spitzenwerte: %.1f MBit/s, %s Pakete/s, %s Verbindungen, %s SYN-RECV',
@@ -97,10 +97,10 @@ final class Notifier
 
         $emailTo = (string)Config::get('mail.alert_to', '');
         if ($emailTo !== '') {
-            Mail::send($emailTo, '✅ DDoS-Vorfall beendet – #' . $incident['id'], $body);
+            Mail::send($emailTo, '✅ DDoS-Vorfall beendet – ' . ($incident['server_name'] ?? 'Hauptserver') . ' #' . $incident['id'], $body);
         }
         DiscordNotifier::send(
-            '✅ DDoS-Vorfall beendet – #' . $incident['id'],
+            '✅ DDoS-Vorfall beendet – ' . ($incident['server_name'] ?? 'Hauptserver') . ' #' . $incident['id'],
             "Dauer: **$durationText**" . ($link !== '' ? "\n[Dashboard öffnen]($link)" : ''),
             [],
             0x2ECC71
@@ -108,5 +108,26 @@ final class Notifier
 
         Database::connection()->prepare('UPDATE incidents SET resolved_notified = 1 WHERE id = :id')
             ->execute(['id' => $incident['id']]);
+    }
+
+    public static function notifyServerOffline(array $server): void
+    {
+        $text = 'Der überwachte Server "' . $server['name'] . '" meldet sich seit ' . $server['last_seen_at']
+            . ' nicht mehr. Bei einem DDoS kann die Leitung überlastet sein; ansonsten Server/Agent prüfen.';
+        $emailTo = (string)Config::get('mail.alert_to', '');
+        if ($emailTo !== '') {
+            Mail::send($emailTo, '⚠️ Server ohne Lebenszeichen: ' . $server['name'], $text);
+        }
+        DiscordNotifier::send('⚠️ Server ohne Lebenszeichen: ' . $server['name'], $text, [], 0xF39C12);
+    }
+
+    public static function notifyServerOnline(array $server): void
+    {
+        $text = 'Der Server "' . $server['name'] . '" meldet sich wieder.';
+        $emailTo = (string)Config::get('mail.alert_to', '');
+        if ($emailTo !== '') {
+            Mail::send($emailTo, '✅ Server wieder erreichbar: ' . $server['name'], $text);
+        }
+        DiscordNotifier::send('✅ Server wieder erreichbar: ' . $server['name'], $text, [], 0x2ECC71);
     }
 }

@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Auth::checkCsrf()) {
     exit;
 }
 
-$incident = $db->prepare('SELECT * FROM incidents WHERE id = :id');
+$incident = $db->prepare("SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id WHERE i.id = :id");
 $incident->execute(['id' => $id]);
 $incident = $incident->fetch();
 if (!$incident) {
@@ -48,6 +48,7 @@ require __DIR__ . '/_layout_top.php';
     <h2>Vorfall #<?= (int)$incident['id'] ?> <span class="badge <?= htmlspecialchars($incident['status']) ?>"><?= htmlspecialchars($incident['status']) ?></span></h2>
     <div class="grid-2">
         <div>
+            <p><strong>Server:</strong> <?= htmlspecialchars($incident['server_name']) ?></p>
             <p><strong>Beginn:</strong> <?= htmlspecialchars($incident['started_at']) ?></p>
             <p><strong>Ende:</strong> <?= htmlspecialchars($incident['resolved_at'] ?? '– (noch aktiv)') ?></p>
             <p><strong>Auslöser:</strong> <?= htmlspecialchars($incident['trigger_reason']) ?></p>

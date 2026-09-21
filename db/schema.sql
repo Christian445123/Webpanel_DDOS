@@ -40,12 +40,14 @@ CREATE TABLE IF NOT EXISTS samples (
     total_conn INT UNSIGNED NOT NULL DEFAULT 0,
     syn_recv INT UNSIGNED NOT NULL DEFAULT 0,
     incident_id INT UNSIGNED NULL,
+    server_id INT UNSIGNED NULL,
     INDEX idx_samples_ts (ts),
     INDEX idx_samples_incident (incident_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS incidents (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    server_id INT UNSIGNED NULL,
     started_at DATETIME NOT NULL,
     resolved_at DATETIME NULL,
     status ENUM('active','resolved') NOT NULL DEFAULT 'active',
@@ -103,4 +105,19 @@ CREATE TABLE IF NOT EXISTS licenses (
     revoked_at DATETIME NULL,
     last_used_at DATETIME NULL,
     last_ip VARCHAR(45) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Ueberwachte Server (Agent auf dem jeweiligen Linux-Server sendet Messwerte per API; jeder Server hat einen eigenen Schluessel)
+CREATE TABLE IF NOT EXISTS servers (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    token_hint CHAR(4) NOT NULL,
+    hostname VARCHAR(255) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at DATETIME NULL,
+    last_seen_at DATETIME NULL,
+    last_ip VARCHAR(45) NULL,
+    state_json TEXT NULL,
+    offline_notified TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

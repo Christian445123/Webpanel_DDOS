@@ -11,12 +11,13 @@ use Vsrp\Ddos\Models\Setting;
 Auth::requireLogin();
 
 $db = Database::connection();
-$latest = $db->query('SELECT * FROM samples ORDER BY id DESC LIMIT 1')->fetch();
-$active = $db->query("SELECT * FROM incidents WHERE status = 'active' ORDER BY id DESC LIMIT 1")->fetch();
+$latest = $db->query('SELECT * FROM samples WHERE server_id IS NULL ORDER BY id DESC LIMIT 1')->fetch();
+$active = $db->query("SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id WHERE i.status = 'active' ORDER BY i.id DESC LIMIT 1")->fetch();
 $recentSamples = array_reverse($db->query(
-    'SELECT ts, mbit_in, pps_in, total_conn, syn_recv FROM samples ORDER BY id DESC LIMIT 180'
+    'SELECT ts, mbit_in, pps_in, total_conn, syn_recv FROM samples WHERE server_id IS NULL ORDER BY id DESC LIMIT 180'
 )->fetchAll());
-$recentIncidents = $db->query('SELECT * FROM incidents ORDER BY id DESC LIMIT 5')->fetchAll();
+$recentIncidents = $db->query("SELECT i.*, COALESCE(s.name, 'Hauptserver') AS server_name FROM incidents i LEFT JOIN servers s ON s.id = i.server_id ORDER BY i.id DESC LIMIT 5")->fetchAll();
+$servers = $db->query("SELECT s.*, (SELECT COUNT(*) FROM incidents i WHERE i.server_id = s.id AND i.status = 'active') AS active_incidents, (SELECT mbit_in FROM samples x WHERE x.server_id = s.id ORDER BY x.id DESC LIMIT 1) AS last_mbit FROM servers s WHERE s.revoked_at IS NULL ORDER BY s.name")->fetchAll();
 
 $mbitThreshold = Setting::getFloat('mbit_threshold', 800);
 
@@ -27,7 +28,7 @@ require __DIR__ . '/_layout_top.php';
 
 <?php if ($active): ?>
     <div class="alert error">
-        ⚠️ <strong>Aktiver Vorfall #<?= (int)$active['id'] ?></strong> seit <?= htmlspecialchars($active['started_at']) ?>
+        ⚠️ <strong>Aktiver Vorfall #<?= (int)$active['id'] ?> auf <?= htmlspecialchars($active['server_name']) ?></strong> seit <?= htmlspecialchars($active['started_at']) ?>
         — <?= htmlspecialchars($active['trigger_reason']) ?>
         &nbsp; <a href="/incident.php?id=<?= (int)$active['id'] ?>">Details ansehen →</a>
     </div>
@@ -60,6 +61,30 @@ require __DIR__ . '/_layout_top.php';
     </div>
 </div>
 
+<?php if ($servers): ?>
+<div class="panel">
+    <h2>Überwachte Server</h2>
+    <table>
+        <thead><tr><th>Server</th><th>Zuletzt gemeldet</th><th>Eingehend</th><th>Status</th></tr></thead>
+        <tbody>
+        <?php foreach ($servers as $s): ?>
+            <?php $seen = $s['last_seen_at'] ? strtotime($s['last_seen_at']) : null; $online = $seen !== null && time() - $seen < 90; ?>
+            <tr>
+                <td><?= htmlspecialchars($s['name']) ?></td>
+                <td><?= htmlspecialchars($s['last_seen_at'] ?? 'noch nie') ?></td>
+                <td><?= $s['last_mbit'] !== null ? number_format((float)$s['last_mbit'], 1, ',', '.') . ' MBit/s' : '–' ?></td>
+                <td>
+                    <?php if ((int)$s['active_incidents'] > 0): ?><span class="badge active">DDoS-Verdacht</span>
+                    <?php elseif ($online): ?><span class="badge resolved">online</span>
+                    <?php else: ?><span class="badge pending"><?= $seen === null ? 'wartet auf Agent' : 'keine Meldung' ?></span><?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
 <div class="panel">
     <h2>Verlauf (letzte Messungen)</h2>
     <canvas id="trafficChart" height="90"></canvas>
@@ -71,11 +96,12 @@ require __DIR__ . '/_layout_top.php';
         <p class="muted">Noch keine Vorfälle aufgezeichnet.</p>
     <?php else: ?>
         <table>
-            <thead><tr><th>#</th><th>Beginn</th><th>Ende</th><th>Status</th><th>Spitze MBit/s</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Server</th><th>Beginn</th><th>Ende</th><th>Status</th><th>Spitze MBit/s</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($recentIncidents as $inc): ?>
                 <tr>
                     <td><?= (int)$inc['id'] ?></td>
+                    <td><?= htmlspecialchars($inc['server_name']) ?></td>
                     <td><?= htmlspecialchars($inc['started_at']) ?></td>
                     <td><?= htmlspecialchars($inc['resolved_at'] ?? '–') ?></td>
                     <td><span class="badge <?= htmlspecialchars($inc['status']) ?>"><?= htmlspecialchars($inc['status']) ?></span></td>

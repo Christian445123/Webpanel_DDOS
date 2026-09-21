@@ -31,6 +31,7 @@ final class Database
             } catch (PDOException $e) {
                 throw new \RuntimeException('Datenbankverbindung fehlgeschlagen: ' . $e->getMessage(), 0, $e);
             }
+            Migrator::run(self::$pdo);
         }
         return self::$pdo;
     }

@@ -31,7 +31,7 @@ if (function_exists('pcntl_signal')) {
 }
 
 $collector = new Collector();
-$detector = new Detector();
+$detectorState = Detector::newState();
 $lastPrune = 0;
 
 fwrite(STDOUT, '[VSRP-DDoS] Collector gestartet, PID ' . getmypid() . "\n");
@@ -46,7 +46,8 @@ while ($running) {
         if (!$metrics['interface_found']) {
             fwrite(STDERR, "[VSRP-DDoS] Warnung: Netzwerkschnittstelle '$iface' nicht gefunden (siehe Einstellungen).\n");
         }
-        $detector->evaluate($metrics);
+        $detectorState = Detector::evaluate($metrics, null, $detectorState);
+        Detector::checkOffline();
     } catch (\Throwable $e) {
         fwrite(STDERR, '[VSRP-DDoS] Fehler im Messzyklus: ' . $e->getMessage() . "\n");
     }
