@@ -67,8 +67,10 @@ INTERVAL=10
 EOF
 chown root:"$SVC_USER" "$CONF"
 chmod 640 "$CONF"
+umask 022
 
 mkdir -p "$LIB_DIR"
+chmod 755 "$LIB_DIR"
 cat > "$LIB_DIR/agent.sh" <<'AGENT_EOF'
 #!/usr/bin/env bash
 # VSRP DDoS Monitor Agent - misst lokal und meldet an die Zentrale. Blockiert nichts.
