@@ -34,9 +34,22 @@ $collector = new Collector();
 $detectorState = Detector::newState();
 $lastPrune = 0;
 
+// Nach einem Update über die Web-Oberfläche (update.php) wird .update-stamp neu geschrieben: der Dienst beendet sich dann
+// und wird von systemd (Restart=always) automatisch mit dem neuen Code gestartet.
+$stampFile = dirname(__DIR__) . '/.update-stamp';
+$readStamp = static function () use ($stampFile): string {
+    clearstatcache(true, $stampFile);
+    return is_file($stampFile) ? (string)@file_get_contents($stampFile) : '';
+};
+$startStamp = $readStamp();
+
 fwrite(STDOUT, '[VSRP-DDoS] Collector gestartet, PID ' . getmypid() . "\n");
 
 while ($running) {
+    if ($readStamp() !== $startStamp) {
+        fwrite(STDOUT, "[VSRP-DDoS] Update erkannt, Dienst startet neu.\n");
+        break;
+    }
     Setting::refresh(); // im Web-UI geänderte Einstellungen (Schwellwerte etc.) ohne Neustart übernehmen
     $intervalSeconds = max(2, Setting::getInt('sample_interval_seconds', 10));
     $iface = Setting::get('monitor_interface', 'eth0');

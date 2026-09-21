@@ -23,6 +23,7 @@ use Vsrp\Ddos\Config;
         <a href="/servers.php" class="<?= ($activeNav ?? '') === 'servers' ? 'active' : '' ?>">Server</a>
         <a href="/licenses.php" class="<?= ($activeNav ?? '') === 'licenses' ? 'active' : '' ?>">Lizenzen</a>
         <a href="/download.php" class="<?= ($activeNav ?? '') === 'download' ? 'active' : '' ?>">Download</a>
+        <a href="/update.php" class="<?= ($activeNav ?? '') === 'update' ? 'active' : '' ?>">Update</a>
         <a href="/settings.php" class="<?= ($activeNav ?? '') === 'settings' ? 'active' : '' ?>">Einstellungen</a>
         <span class="muted"><?= htmlspecialchars(Auth::username()) ?></span>
         &nbsp;·&nbsp;
