@@ -8,7 +8,7 @@ final class DiscordNotifier
 {
     public static function send(string $title, string $description, array $fields = [], int $color = 0xE74C3C): bool
     {
-        $webhook = Models\Setting::get('discord_webhook_url');
+        $webhook = (string)Config::get('discord_webhook_url', '');
         if ($webhook === '') {
             return false;
         }

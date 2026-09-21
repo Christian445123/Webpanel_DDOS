@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS api_keys (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Konfiguration als einfacher Key-Value-Speicher (Schwellwerte, SMTP, Discord, ...), im Web-UI unter "Einstellungen" editierbar
+-- Konfiguration als einfacher Key-Value-Speicher (nur Erkennungs-Schwellwerte), im Web-UI unter
+-- "Einstellungen" editierbar. Zugangsdaten (Datenbank, SMTP, Discord-Webhook) liegen NICHT hier,
+-- sondern in der .env-Datei (siehe .env.example).
 CREATE TABLE IF NOT EXISTS settings (
     setting_key VARCHAR(100) PRIMARY KEY,
     setting_value TEXT NULL,
@@ -87,15 +89,5 @@ INSERT INTO settings (setting_key, setting_value) VALUES
     ('consecutive_to_trigger', '3'),
     ('consecutive_to_resolve', '6'),
     ('monitor_interface', 'eth0'),
-    ('samples_retention_days', '14'),
-    ('smtp_host', ''),
-    ('smtp_port', '587'),
-    ('smtp_encryption', 'tls'),
-    ('smtp_username', ''),
-    ('smtp_password', ''),
-    ('smtp_from_email', ''),
-    ('smtp_from_name', 'VSRP DDoS Monitor'),
-    ('alert_email_to', ''),
-    ('discord_webhook_url', ''),
-    ('dashboard_base_url', '')
+    ('samples_retention_days', '14')
 ON DUPLICATE KEY UPDATE setting_key = setting_key;

@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/autoload.php';
+require __DIR__ . '/autoload.php';
 
 use Vsrp\Ddos\Auth;
+use Vsrp\Ddos\Config;
 use Vsrp\Ddos\Database;
 use Vsrp\Ddos\Mail;
 use Vsrp\Ddos\Models\Setting;
@@ -31,21 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Auth::checkCsrf()) {
             'samples_retention_days' => (int)($_POST['samples_retention_days'] ?? 14),
         ]);
         $message = 'Schwellwerte gespeichert. Der Collector-Dienst übernimmt sie beim nächsten Messzyklus.';
-    } elseif ($form === 'notifications') {
-        Setting::setMany([
-            'smtp_host' => trim((string)($_POST['smtp_host'] ?? '')),
-            'smtp_port' => (int)($_POST['smtp_port'] ?? 587),
-            'smtp_encryption' => (string)($_POST['smtp_encryption'] ?? 'tls'),
-            'smtp_username' => trim((string)($_POST['smtp_username'] ?? '')),
-            'smtp_password' => (string)($_POST['smtp_password'] ?? ''),
-            'smtp_from_email' => trim((string)($_POST['smtp_from_email'] ?? '')),
-            'smtp_from_name' => trim((string)($_POST['smtp_from_name'] ?? '')),
-            'alert_email_to' => trim((string)($_POST['alert_email_to'] ?? '')),
-            'discord_webhook_url' => trim((string)($_POST['discord_webhook_url'] ?? '')),
-        ]);
-        $message = 'Benachrichtigungseinstellungen gespeichert.';
     } elseif ($form === 'test_email') {
-        $to = Setting::get('alert_email_to');
+        $to = (string)Config::get('mail.alert_to', '');
         if ($to === '') {
             $error = 'Bitte zuerst eine Alarm-E-Mail-Adresse eintragen und speichern.';
         } elseif (Mail::send($to, 'Testmail – VSRP DDoS Monitor', "Das ist eine Testnachricht.\nWenn diese ankommt, sind die SMTP-Einstellungen korrekt.")) {
@@ -132,35 +120,25 @@ require __DIR__ . '/_layout_top.php';
 
 <div class="panel">
     <h2>Benachrichtigungen</h2>
-    <form method="post">
-        <input type="hidden" name="csrf" value="<?= htmlspecialchars(Auth::csrfToken()) ?>">
-        <input type="hidden" name="form" value="notifications">
-        <h3 style="font-size:13px;color:var(--muted)">E-Mail (SMTP)</h3>
-        <div class="grid-2">
-            <div class="form-row"><label>SMTP-Host</label><input type="text" name="smtp_host" value="<?= htmlspecialchars(Setting::get('smtp_host')) ?>"></div>
-            <div class="form-row"><label>Port</label><input type="number" name="smtp_port" value="<?= htmlspecialchars(Setting::get('smtp_port', '587')) ?>"></div>
-            <div class="form-row">
-                <label>Verschlüsselung</label>
-                <select name="smtp_encryption">
-                    <?php foreach (['tls' => 'STARTTLS (587)', 'ssl' => 'SSL/TLS (465)', 'none' => 'Keine'] as $val => $label): ?>
-                        <option value="<?= $val ?>" <?= Setting::get('smtp_encryption', 'tls') === $val ? 'selected' : '' ?>><?= $label ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="form-row"><label>Benutzername</label><input type="text" name="smtp_username" value="<?= htmlspecialchars(Setting::get('smtp_username')) ?>"></div>
-            <div class="form-row"><label>Passwort</label><input type="password" name="smtp_password" value="<?= htmlspecialchars(Setting::get('smtp_password')) ?>"></div>
-            <div class="form-row"><label>Absender-E-Mail</label><input type="email" name="smtp_from_email" value="<?= htmlspecialchars(Setting::get('smtp_from_email')) ?>"></div>
-            <div class="form-row"><label>Absendername</label><input type="text" name="smtp_from_name" value="<?= htmlspecialchars(Setting::get('smtp_from_name', 'VSRP DDoS Monitor')) ?>"></div>
-            <div class="form-row"><label>Alarm-E-Mail an (mehrere mit Komma trennen)</label><input type="text" name="alert_email_to" value="<?= htmlspecialchars(Setting::get('alert_email_to')) ?>"></div>
-        </div>
-        <h3 style="font-size:13px;color:var(--muted)">Discord</h3>
-        <div class="form-row">
-            <label>Discord-Webhook-URL</label>
-            <input type="text" name="discord_webhook_url" value="<?= htmlspecialchars(Setting::get('discord_webhook_url')) ?>">
-        </div>
-        <button type="submit" class="btn primary">Speichern</button>
-    </form>
-    <form method="post" style="margin-top:10px">
+    <p class="muted">
+        SMTP- und Discord-Zugangsdaten werden aus Sicherheitsgründen nicht in der Datenbank, sondern
+        ausschließlich in der <code>.env</code>-Datei auf dem Server gespeichert (nicht im Git-Repository,
+        nur per SFTP übertragen). Zum Ändern <code>.env</code> direkt auf dem Server bearbeiten.
+    </p>
+    <table>
+        <tbody>
+        <?php
+        $configuredOrDash = static fn(string $key): string => (string)Config::get($key, '') !== ''
+            ? htmlspecialchars((string)Config::get($key))
+            : '– nicht gesetzt –';
+        ?>
+        <tr><td>SMTP-Host</td><td class="mono"><?= $configuredOrDash('mail.host') ?></td></tr>
+        <tr><td>Absender-E-Mail</td><td class="mono"><?= $configuredOrDash('mail.from_email') ?></td></tr>
+        <tr><td>Alarm-E-Mail an</td><td class="mono"><?= $configuredOrDash('mail.alert_to') ?></td></tr>
+        <tr><td>Discord-Webhook</td><td><?= Config::get('discord_webhook_url', '') !== '' ? '<span class="badge resolved">gesetzt</span>' : '<span class="badge ignored">nicht gesetzt</span>' ?></td></tr>
+        </tbody>
+    </table>
+    <form method="post" style="margin-top:14px">
         <input type="hidden" name="csrf" value="<?= htmlspecialchars(Auth::csrfToken()) ?>">
         <input type="hidden" name="form" value="test_email">
         <button type="submit" class="btn">Test-E-Mail senden</button>

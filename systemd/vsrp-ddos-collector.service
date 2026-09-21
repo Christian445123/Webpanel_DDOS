@@ -4,16 +4,16 @@ After=network.target mysql.service mariadb.service
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/var/www/vsrp-ddos
-ExecStart=/usr/bin/php /var/www/vsrp-ddos/bin/collector.php
+# CloudPanel-Seiten liegen unter /home/<siteuser>/htdocs/<domain>/ - Platzhalter unten anpassen.
+User=<siteuser>
+WorkingDirectory=/home/<siteuser>/htdocs/ddos.viennastaterp.at
+ExecStart=/usr/bin/php /home/<siteuser>/htdocs/ddos.viennastaterp.at/bin/collector.php
 Restart=always
 RestartSec=5
 # Wird fuer nftables/iptables-Vorschlaege NICHT gebraucht (es wird nichts automatisch geblockt) -
 # der Dienst braucht nur Leserechte fuer /proc/net/dev und Ausfuehrrecht fuer `ss`.
 NoNewPrivileges=true
 ProtectSystem=full
-ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/autoload.php';
+require dirname(__DIR__) . '/autoload.php';
 
 use Vsrp\Ddos\ApiAuth;
 use Vsrp\Ddos\Database;

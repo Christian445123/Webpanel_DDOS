@@ -41,7 +41,7 @@ final class Notifier
         }
         $body = implode("\n", $lines);
 
-        $emailTo = Models\Setting::get('alert_email_to');
+        $emailTo = (string)Config::get('mail.alert_to', '');
         $emailSent = false;
         if ($emailTo !== '') {
             $emailSent = Mail::send($emailTo, '⚠️ DDoS-Verdacht erkannt – Vorfall #' . $incident['id'], $body);
@@ -95,7 +95,7 @@ final class Notifier
             $link !== '' ? 'Details: ' . $link : null,
         ]));
 
-        $emailTo = Models\Setting::get('alert_email_to');
+        $emailTo = (string)Config::get('mail.alert_to', '');
         if ($emailTo !== '') {
             Mail::send($emailTo, '✅ DDoS-Vorfall beendet – #' . $incident['id'], $body);
         }

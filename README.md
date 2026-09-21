@@ -9,13 +9,24 @@ Kein Composer, keine Framework-Abhängigkeit – reines PHP 8.1+, PDO/MySQL, `cu
 
 ## Architektur
 
+Flache Struktur wie bei U19 (`AFBÖ/U19`) – **kein separater `public/`-Ordner, kein Anpassen der
+CloudPanel-/vHost-Konfiguration nötig.** Der komplette Ordnerinhalt wird 1:1 per SFTP in das
+Website-Root-Verzeichnis der CloudPanel-Seite hochgeladen (dort, wo sonst z. B. die
+Platzhalter-`index.php` liegt), fertig.
+
 - **`bin/collector.php`** – Dauerhaft laufender Hintergrunddienst (systemd), misst alle paar
   Sekunden Bandbreite (`/proc/net/dev`) und Verbindungen (`ss -Htan`), wertet Schwellwerte aus,
   legt Vorfälle (`incidents`) und auffällige IPs (`suspects`) an und löst Benachrichtigungen aus.
   Braucht keine Root-Rechte (nur Leserechte auf `/proc/net/dev` und Ausführrecht für `ss`).
-- **`public/`** – Web-Dashboard (Login, Live-Status, Vorfallshistorie, Einstellungen,
-  API-Schlüssel-Verwaltung) + REST-API (`public/api/`) für den C#-Admin-Client.
-- **`src/`** – Anwendungslogik (Erkennung, Benachrichtigung, Datenbank, Auth).
+  Nur über die Kommandozeile ausführbar (nicht über den Browser), zusätzlich per `.htaccess`
+  und `bin/.htaccess` gesperrt.
+- **Web-Dashboard** (`index.php`, `login.php`, `dashboard.php`, `incidents.php`, `incident.php`,
+  `settings.php`, `api_keys.php`) + **REST-API** (`api/`) für den C#-Admin-Client.
+- **`src/`** – Anwendungslogik (Erkennung, Benachrichtigung, Datenbank, Auth). Über `.htaccess`
+  vor direktem Browser-Zugriff gesperrt (`RewriteRule ^src/ - [F,L]`); die Klassen darin
+  deklarieren ohnehin nur Code und geben bei direktem Aufruf keine Daten aus.
+- **`.env`** – Zugangsdaten (Datenbank, SMTP, Discord, `APP_KEY`). Per `.htaccess` gesperrt
+  (`<FilesMatch "^\.env$"> Require all denied </FilesMatch>`), zusätzlich nie über Git verteilt.
 
 Web-Anwendung und Collector-Dienst laufen unabhängig voneinander und teilen sich nur die Datenbank.
 
@@ -26,43 +37,35 @@ Web-Anwendung und Collector-Dienst laufen unabhängig voneinander und teilen sic
    mysql -u root -p -e "CREATE DATABASE vsrp_ddos CHARACTER SET utf8mb4;"
    mysql -u root -p vsrp_ddos < db/schema.sql
    ```
-2. **Konfiguration**: `config/config.example.php` nach `config/config.php` kopieren und
-   Datenbankzugang, `app_key` (Zufallsstring) und `base_url` eintragen.
+2. **Konfiguration**: `.env.example` nach `.env` kopieren und ausfüllen (Datenbankzugang, `APP_KEY`,
+   `BASE_URL`, SMTP, Discord-Webhook). **`.env` enthält Zugangsdaten, wird nicht eingecheckt
+   (siehe `.gitignore`) und darf nur per SFTP direkt auf den Server übertragen werden — niemals
+   per `git push`/`pull`.** `APP_KEY` erzeugen z. B. mit:
+   ```bash
+   php -r "echo bin2hex(random_bytes(32));"
+   ```
 3. **Admin-Benutzer anlegen**:
    ```bash
    php bin/create_admin.php admin
    ```
-4. **Webserver**: DocumentRoot muss auf `public/` zeigen (Apache mit `mod_rewrite`, oder Nginx
-   mit entsprechendem `try_files`/PHP-FPM-Block). `config/`, `src/`, `db/`, `bin/` liegen
-   außerhalb von `public/` und sind damit nicht über den Browser erreichbar.
-
-   Nginx-Beispiel:
-   ```nginx
-   root /var/www/vsrp-ddos/public;
-   index index.php;
-   location / { try_files $uri $uri/ /index.php?$args; }
-   location /api/ { try_files $uri /api/index.php?r=$1&$args; }
-   location ~ \.php$ {
-       include fastcgi_params;
-       fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-       fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-   }
-   ```
+4. **Dateien hochladen**: kompletten Ordnerinhalt per SFTP in das Website-Root der CloudPanel-Seite
+   kopieren (keine vHost-/Document-Root-Änderung nötig – Schutz sensibler Dateien läuft über
+   `.htaccess`, siehe oben).
 5. **Collector-Dienst einrichten** (läuft dauerhaft im Hintergrund):
    ```bash
    sudo cp systemd/vsrp-ddos-collector.service /etc/systemd/system/
-   # Pfade in der Datei anpassen (WorkingDirectory/ExecStart) und ggf. den User
+   # Platzhalter <siteuser> und den Pfad in der Datei anpassen (CloudPanel-Seitenbenutzer)
    sudo systemctl daemon-reload
    sudo systemctl enable --now vsrp-ddos-collector
    sudo journalctl -u vsrp-ddos-collector -f
    ```
-6. Im Dashboard unter **Einstellungen** Schwellwerte, SMTP und den Discord-Webhook eintragen,
-   unter **API-Zugang** einen Schlüssel für den C#-Admin-Client erstellen.
+6. Im Dashboard unter **Einstellungen** die Erkennungs-Schwellwerte anpassen (SMTP/Discord kommen
+   aus `.env`, siehe oben) und unter **API-Zugang** einen Schlüssel für den C#-Admin-Client erstellen.
 
-> **Hinweis (Apache/PHP-FPM):** Der `Authorization`-Header wird von Apache standardmäßig nicht an
-> PHP-FPM weitergereicht. Falls der C#-Client "401 unauthorized" meldet, im vHost oder in
-> `public/.htaccess` ergänzen: `CGIPassAuth On` (Apache 2.4.13+) oder eine Rewrite-Regel
-> `RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]`.
+> **Hinweis (Authorization-Header):** Manche Apache/PHP-FPM-Konfigurationen reichen den
+> `Authorization`-Header nicht automatisch durch. `api/.htaccess` enthält dafür bereits die
+> nötige Rewrite-Regel; falls der C#-Client dennoch "401 unauthorized" meldet, zusätzlich im
+> vHost `CGIPassAuth On` (Apache 2.4.13+) ergänzen.
 
 ## Erkennung & Gegenmaßnahme – bewusste Design-Entscheidung
 

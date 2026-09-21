@@ -11,6 +11,11 @@ declare(strict_types=1);
  * Aufruf: php bin/collector.php
  */
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Nur über die Kommandozeile ausführbar.');
+}
+
 require dirname(__DIR__) . '/autoload.php';
 
 use Vsrp\Ddos\Collector;

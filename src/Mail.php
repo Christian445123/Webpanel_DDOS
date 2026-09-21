@@ -12,13 +12,13 @@ final class Mail
 {
     public static function send(string $toEmail, string $subject, string $body): bool
     {
-        $host = Models\Setting::get('smtp_host');
-        $port = Models\Setting::getInt('smtp_port', 587);
-        $encryption = Models\Setting::get('smtp_encryption', 'tls'); // tls|ssl|none
-        $username = Models\Setting::get('smtp_username');
-        $password = Models\Setting::get('smtp_password');
-        $fromEmail = Models\Setting::get('smtp_from_email');
-        $fromName = Models\Setting::get('smtp_from_name', 'VSRP DDoS Monitor');
+        $host = (string)Config::get('mail.host', '');
+        $port = (int)Config::get('mail.port', 587);
+        $encryption = (string)Config::get('mail.encryption', 'tls'); // tls|ssl|none
+        $username = (string)Config::get('mail.username', '');
+        $password = (string)Config::get('mail.password', '');
+        $fromEmail = (string)Config::get('mail.from_email', '');
+        $fromName = (string)Config::get('mail.from_name', 'VSRP DDoS Monitor');
 
         if ($host === '' || $fromEmail === '' || $toEmail === '') {
             return false;
