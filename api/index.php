@@ -6,8 +6,11 @@ require dirname(__DIR__) . '/autoload.php';
 
 use Vsrp\Ddos\ApiAuth;
 use Vsrp\Ddos\Database;
+use Vsrp\Ddos\Config;
 use Vsrp\Ddos\Detector;
 use Vsrp\Ddos\License;
+use Vsrp\Ddos\Mail;
+use Vsrp\Ddos\Models\Setting;
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -141,6 +144,109 @@ if (count($segments) === 3 && $segments[0] === 'suspects' && ctype_digit($segmen
         json_out(404, ['error' => 'not_found']);
     }
     json_out(200, ['ok' => true]);
+}
+
+// GET /api/servers – überwachte Server inkl. Status
+if ($segments === ['servers'] && $method === 'GET') {
+    $rows = $db->query(
+        "SELECT s.id, s.name, s.hostname, s.token_hint, s.last_seen_at, s.last_ip, s.revoked_at, s.created_at,
+                (SELECT COUNT(*) FROM incidents i WHERE i.server_id = s.id AND i.status = 'active') AS active_incidents,
+                (SELECT mbit_in FROM samples x WHERE x.server_id = s.id ORDER BY x.id DESC LIMIT 1) AS last_mbit
+         FROM servers s ORDER BY s.id DESC"
+    )->fetchAll();
+    foreach ($rows as &$r) {
+        $seen = $r['last_seen_at'] ? strtotime($r['last_seen_at']) : null;
+        $r['online'] = $seen !== null && time() - $seen < 90;
+    }
+    unset($r);
+    json_out(200, ['servers' => $rows]);
+}
+
+// POST /api/servers  body: {"name":"..."} – legt einen Server an, der Schlüssel wird nur hier einmalig geliefert
+if ($segments === ['servers'] && $method === 'POST') {
+    $body = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+    $name = substr(trim((string)($body['name'] ?? '')), 0, 100);
+    if ($name === '') {
+        json_out(422, ['error' => 'invalid_name', 'message' => 'Bitte einen Namen angeben.']);
+    }
+    $newKey = ApiAuth::newServerKey();
+    $db->prepare('INSERT INTO servers (name, token_hash, token_hint) VALUES (:n, :h, :hint)')
+        ->execute(['n' => $name, 'h' => ApiAuth::hash($newKey), 'hint' => substr($newKey, -4)]);
+    $base = rtrim((string)Config::get('base_url', ''), '/');
+    json_out(200, [
+        'ok' => true,
+        'name' => $name,
+        'key' => $newKey,
+        'install_command' => 'curl -fsSL ' . $base . '/agent/install.sh | sudo bash -s -- ' . $newKey,
+    ]);
+}
+
+// POST /api/servers/{id}/revoke
+if (count($segments) === 3 && $segments[0] === 'servers' && ctype_digit($segments[1]) && $segments[2] === 'revoke' && $method === 'POST') {
+    $stmt = $db->prepare('UPDATE servers SET revoked_at = NOW() WHERE id = :id AND revoked_at IS NULL');
+    $stmt->execute(['id' => (int)$segments[1]]);
+    json_out($stmt->rowCount() > 0 ? 200 : 404, ['ok' => $stmt->rowCount() > 0]);
+}
+
+$thresholdKeys = [
+    'mbit_threshold' => 'float', 'pps_threshold' => 'int', 'total_conn_threshold' => 'int', 'syn_recv_threshold' => 'int',
+    'per_ip_conn_threshold' => 'int', 'sample_interval_seconds' => 'int', 'consecutive_to_trigger' => 'int',
+    'consecutive_to_resolve' => 'int', 'monitor_interface' => 'string', 'samples_retention_days' => 'int',
+];
+
+// GET /api/settings – Schwellwerte + Status der Benachrichtigungen (Zugangsdaten selbst werden nie ausgeliefert)
+if ($segments === ['settings'] && $method === 'GET') {
+    $values = [];
+    foreach ($thresholdKeys as $k => $type) {
+        $values[$k] = Setting::get($k, '');
+    }
+    json_out(200, [
+        'thresholds' => $values,
+        'notifications' => [
+            'smtp_host' => (string)Config::get('mail.host', ''),
+            'from_email' => (string)Config::get('mail.from_email', ''),
+            'alert_to' => (string)Config::get('mail.alert_to', ''),
+            'discord_set' => (string)Config::get('discord_webhook_url', '') !== '',
+        ],
+    ]);
+}
+
+// POST /api/settings  body: {"thresholds":{...}}
+if ($segments === ['settings'] && $method === 'POST') {
+    $body = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+    $in = is_array($body['thresholds'] ?? null) ? $body['thresholds'] : [];
+    $save = [];
+    foreach ($thresholdKeys as $k => $type) {
+        if (!array_key_exists($k, $in)) {
+            continue;
+        }
+        if ($type === 'string') {
+            $v = trim((string)$in[$k]);
+            if (!preg_match('/^[A-Za-z0-9_.:@-]{1,32}$/', $v)) {
+                json_out(422, ['error' => 'invalid_value', 'message' => "Ungültiger Wert für $k."]);
+            }
+            $save[$k] = $v;
+        } else {
+            if (!is_numeric($in[$k]) || (float)$in[$k] <= 0) {
+                json_out(422, ['error' => 'invalid_value', 'message' => "Ungültiger Wert für $k."]);
+            }
+            $save[$k] = $type === 'int' ? (string)(int)$in[$k] : (string)(float)$in[$k];
+        }
+    }
+    if ($save) {
+        Setting::setMany($save);
+    }
+    json_out(200, ['ok' => true]);
+}
+
+// POST /api/settings/test-email
+if ($segments === ['settings', 'test-email'] && $method === 'POST') {
+    $to = (string)Config::get('mail.alert_to', '');
+    if ($to === '') {
+        json_out(422, ['error' => 'no_recipient', 'message' => 'ALERT_EMAIL_TO ist in der .env nicht gesetzt.']);
+    }
+    $ok = Mail::send($to, 'Testmail – VSRP DDoS Monitor', "Das ist eine Testnachricht.\nWenn diese ankommt, sind die SMTP-Einstellungen korrekt.");
+    json_out($ok ? 200 : 502, ['ok' => $ok, 'message' => $ok ? 'Test-E-Mail verschickt an ' . $to : 'Versand fehlgeschlagen. SMTP-Einstellungen prüfen.']);
 }
 
 json_out(404, ['error' => 'not_found', 'message' => 'Unbekannte Route.']);
