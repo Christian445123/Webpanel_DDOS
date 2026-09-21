@@ -167,9 +167,27 @@ PrivateTmp=true
 WantedBy=multi-user.target
 UNIT_EOF
 
+# Rechte sicherstellen (auch bei Neuinstallation ueber eine bestehende Installation) und pruefen, dass der
+# Dienstbenutzer die Dateien wirklich lesen/ausfuehren darf - sonst startet der Dienst nicht (Status 203/EXEC).
+chown -R root:root "$LIB_DIR"
+chmod 755 "$LIB_DIR" "$LIB_DIR/agent.sh"
+if command -v runuser >/dev/null; then
+    runuser -u "$SVC_USER" -- test -x "$LIB_DIR/agent.sh"         || die "Der Benutzer $SVC_USER darf $LIB_DIR/agent.sh nicht ausfuehren (Rechte der uebergeordneten Ordner oder noexec-Mount pruefen: mount | grep noexec)."
+    runuser -u "$SVC_USER" -- test -r "$CONF"         || die "Der Benutzer $SVC_USER darf $CONF nicht lesen."
+fi
 systemctl daemon-reload
 systemctl enable --now vsrp-agent
 systemctl restart vsrp-agent
+
+# Dienst pruefen: laeuft er stabil (kein Neustart-Loop)?
+sleep 6
+state="$(systemctl is-active vsrp-agent || true)"
+restarts="$(systemctl show vsrp-agent -p NRestarts --value 2>/dev/null || echo 0)"
+if [ "$state" != "active" ] || [ "${restarts:-0}" -gt 0 ]; then
+    echo "FEHLER: Der Agent laeuft nicht stabil (Status: $state, Neustarts: ${restarts:-0}). Letzte Logzeilen:" >&2
+    journalctl -u vsrp-agent -n 15 --no-pager >&2 || true
+    exit 1
+fi
 
 # Verbindungstest (Schluessel und Erreichbarkeit der Zentrale)
 code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" \
